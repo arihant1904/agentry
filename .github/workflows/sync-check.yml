@@ -1,0 +1,65 @@
+name: sync-check
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# Least privilege. Every job here only checks out the repo and runs npm — none
+# writes a comment, a commit, or a release. Without this block the workflow
+# inherits the repository's default GITHUB_TOKEN scope, which on older repo
+# settings is read/write across contents, issues, packages, and more. See
+# release.yml, which asks for `contents: write` because it genuinely needs it.
+permissions:
+  contents: read
+
+jobs:
+  sync-determinism:
+    name: Sync determinism
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Run sync
+        run: npm run sync
+
+      - name: Verify no drift
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Generated harness directories drift from source."
+            echo "Run 'npm run sync' locally and commit the regenerated files."
+            git status --short
+            git --no-pager diff
+            exit 1
+          fi
+
+  frontmatter-lint:
+    name: Frontmatter lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Lint frontmatter
+        run: npm run lint
+
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Run tests
+        run: npm test
